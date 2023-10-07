@@ -44,3 +44,15 @@ func (ct *CustomTime) UnmarshalJSON(jsonValue []byte) error {
 	*ct = CustomTime(parsedTime)
 	return nil
 }
+
+func (ct CustomTime) IsZero() bool {
+	return time.Time(ct).IsZero()
+}
+
+func (ct CustomTime) Before(t time.Time) bool {
+	return time.Time(ct).Before(t)
+}
+
+func (ct CustomTime) After(t time.Time) bool {
+	return time.Time(ct).After(t)
+}
