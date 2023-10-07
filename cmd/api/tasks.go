@@ -25,10 +25,10 @@ func (app *application) showTaskHandler(w http.ResponseWriter, r *http.Request) 
 	// Also notice that we deliberately haven't set a value for the UserID field.
 	task := data.Task{
 		ID:          id,
-		CreatedAt:   time.Now(),
+		CreatedAt:   data.CustomTime(time.Now()),
 		Title:       "Golang Assignment-2",
 		Description: "Create a project according to the book up to ch. 5. Database Setup and Configuration(Project should include 1-4 chapters).Send link to a git repository.Repositories with single commit will get -20%.",
-		DueDate:     time.Date(2023, 10, 7, 23, 59, 0, 0, time.UTC),
+		DueDate:     data.CustomTime(time.Date(2023, 10, 7, 23, 59, 0, 0, time.UTC)),
 		Priority:    "high",
 		Status:      "in-process",
 		Category:    "KBTU Tasks",
