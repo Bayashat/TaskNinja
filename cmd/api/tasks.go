@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/Bayashat/TaskNinja/internal/data"
 	"net/http"
+	"time"
 )
 
 func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -19,5 +21,22 @@ func (app *application) showTaskHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fmt.Fprintf(w, "show the details of task: %d\n", id)
+	// Create a new instance of the Movie struct, containing the ID we extracted from the URL and some dummy data.
+	// Also notice that we deliberately haven't set a value for the UserID field.
+	task := data.Task{
+		ID:          id,
+		CreatedAt:   time.Now(),
+		Title:       "Golang Assignment-2",
+		Description: "Create a project according to the book up to ch. 5. Database Setup and Configuration(Project should include 1-4 chapters).Send link to a git repository.Repositories with single commit will get -20%.",
+		DueDate:     time.Date(2023, 10, 7, 23, 59, 0, 0, time.UTC),
+		Priority:    "high",
+		Status:      "in-process",
+		Category:    "KBTU Tasks",
+	}
+	// Encode the struct to JSON and send it as the HTTP response.
+	err = app.writeJSON(w, http.StatusOK, task, nil)
+	if err != nil {
+		app.logger.Println(err)
+		http.Error(w, "The server encountered a problem and could not process your request", http.StatusInternalServerError)
+	}
 }
