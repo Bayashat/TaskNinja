@@ -46,7 +46,7 @@ func main() {
 
 	// Use the value of the GREENLIGHT_DB_DSN environment variable as the default value
 	// for our db-dsn command-line flag.
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TASKNINJA_DB_DSN"), "PostgreSQL DSN")
 
 	flag.Parse()
 
