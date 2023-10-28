@@ -97,10 +97,53 @@ func (m TaskModel) Get(id int64) (*Task, error) {
 
 // Add a placeholder method for updating a specific record in the task table.
 func (m TaskModel) Update(task *Task) error {
-	return nil
+	// Declare the SQL query for updating the record and returning the new version number.
+	query := `
+		UPDATE tasks
+		SET title = $1, description = $2, priority = $3, status = $4, category = $5, user_id = $6
+		WHERE id = $7
+		RETURNING user_id`
+	// Create an args slice containing the values for the placeholder parameters.
+	args := []interface{}{
+		task.Title,
+		task.Description,
+		task.Priority,
+		task.Status,
+		task.Category,
+		task.UserID,
+		task.ID,
+	}
+	// Use the QueryRow() method to execute the query,
+	// passing in the args slice as a variadic parameter and scanning the new version value into the task struct.
+	return m.DB.QueryRow(query, args...).Scan(&task.UserID)
 }
 
 // Add a placeholder method for deleting a specific record from the task table.
 func (m TaskModel) Delete(id int64) error {
+	// Return an ErrRecordNotFound error if the task ID is less than 1.
+	if id < 1 {
+		return ErrRecordNotFound
+	}
+	// Construct the SQL query to delete the record.
+	query := `
+		DELETE FROM tasks
+		WHERE id = $1`
+	// Execute the SQL query using the Exec() method, passing in the id variable as the value for the placeholder parameter.
+	// The Exec() method returns a sql.Result object.
+	result, err := m.DB.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	// Call the RowsAffected() method on the sql.Result object to get the number of rows affected by the query.
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	// If no rows were affected,
+	//	we know that the tasks table didn't contain a record with the provided ID at the moment we tried to delete it.
+	// In that case we return an ErrRecordNotFound error.
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
 	return nil
 }

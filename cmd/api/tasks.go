@@ -91,3 +91,91 @@ func (app *application) showTaskHandler(w http.ResponseWriter, r *http.Request) 
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract the task ID from the URL.
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	// Fetch the existing task record from the database,
+	// sending a 404 Not Found response to the client if we couldn't find a matching record.
+	task, err := app.models.Tasks.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	// Declare an input struct to hold the expected data from the client.
+	var input struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		//DueDate     data.CustomTime `json:"due_date"`
+		Priority string `json:"priority"`
+		Status   string `json:"status"`
+		Category string `json:"category"`
+	}
+
+	// Read the JSON request body data into the input struct.
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	// Copy the values from the request body to the appropriate fields of the movie record.
+	task.Title = input.Title
+	task.Description = input.Description
+	task.Priority = input.Priority
+	task.Status = input.Status
+	task.Category = input.Category
+
+	// Validate the updated task record, sending the client a 422 Unprocessable Entity response if any checks fail.
+	v := validator.New()
+	if data.ValidateTask(v, task); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	// Pass the updated task record to our new Update() method.
+	err = app.models.Tasks.Update(task)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	// Write the updated task record in a JSON response.
+	err = app.writeJSON(w, http.StatusOK, envelope{"task": task}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract the task ID from the URL.
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	// Delete the task from the database,
+	//		sending a 404 Not Found response to the client if there isn't a matching record.
+	err = app.models.Tasks.Delete(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	// Return a 200 OK status code along with a success message.
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "task successfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
