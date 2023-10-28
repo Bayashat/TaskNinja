@@ -1,6 +1,7 @@
 package data
 
 import (
+	"database/sql"
 	"github.com/Bayashat/TaskNinja/internal/validator"
 	"time"
 )
@@ -28,4 +29,29 @@ func ValidateTask(v *validator.Validator, task *Task) {
 	v.Check(task.Priority != "", "priority", "must be provided")
 	v.Check(task.Status != "", "status", "must be provided")
 	v.Check(task.Category != "", "category", "must be provided")
+}
+
+// Define a MovieModel struct type which wraps a sql.DB connection pool.
+type TaskModel struct {
+	DB *sql.DB
+}
+
+// Add a placeholder method for inserting a new record in the movies table.
+func (m TaskModel) Insert(task *Task) error {
+	return nil
+}
+
+// Add a placeholder method for fetching a specific record from the movies table.
+func (m TaskModel) Get(id int64) (*Task, error) {
+	return nil, nil
+}
+
+// Add a placeholder method for updating a specific record in the movies table.
+func (m TaskModel) Update(task *Task) error {
+	return nil
+}
+
+// Add a placeholder method for deleting a specific record from the movies table.
+func (m TaskModel) Delete(id int64) error {
+	return nil
 }
