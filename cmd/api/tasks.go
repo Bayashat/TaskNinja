@@ -1,11 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Bayashat/TaskNinja/internal/data"
 	"github.com/Bayashat/TaskNinja/internal/validator"
 	"net/http"
-	"time"
 )
 
 func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,14 +38,14 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 	// Initialize a new Validator.
 	v := validator.New()
 
-	// Call the ValidateMovie() function and return a response containing the errors if any of the checks fail.
+	// Call the ValidateTask() function and return a response containing the errors if any of the checks fail.
 	if data.ValidateTask(v, movie); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	// Call the Insert() method on our movies model, passing in a pointer to the validated movie struct.
-	// This will create a record in the database and update the movie struct with the system-generated information.
+	// Call the Insert() method on our tasks model, passing in a pointer to the validated task struct.
+	// This will create a record in the database and update the task struct with the system-generated information.
 	err = app.models.Tasks.Insert(movie)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -54,10 +54,10 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 	// When sending a HTTP response, we want to include a Location header to
 	//		let the client know which URL they can find the newly-created resource at.
 	// We make an empty http.Header map and then use the Set() method to add a new Location header,
-	// 		interpolating the system-generated ID for our new movie in the URL.
+	// 		interpolating the system-generated ID for our new task in the URL.
 	headers := make(http.Header)
 	headers.Set("Location", fmt.Sprintf("/v1/tasks/%d", movie.ID))
-	// Write a JSON response with a 201 Created status code, the movie data in the response body, and the Location header.
+	// Write a JSON response with a 201 Created status code, the task data in the response body, and the Location header.
 	err = app.writeJSON(w, http.StatusCreated, envelope{"task": movie}, headers)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -70,28 +70,24 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 func (app *application) showTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
-		// Use the new notFoundResponse() helper.
 		app.notFoundResponse(w, r)
 		return
 	}
-
-	// Create a new instance of the Movie struct, containing the ID we extracted from the URL and some dummy data.
-	// Also notice that we deliberately haven't set a value for the UserID field.
-	task := data.Task{
-		ID:          id,
-		CreatedAt:   data.CustomTime(time.Now()),
-		Title:       "Golang Assignment-2",
-		Description: "Create a project according to the book up to ch. 5. Database Setup and Configuration(Project should include 1-4 chapters).Send link to a git repository.Repositories with single commit will get -20%.",
-		//DueDate:     data.CustomTime(time.Date(2023, 10, 7, 23, 59, 0, 0, time.UTC)),
-		Priority: "high",
-		Status:   "in-process",
-		Category: "KBTU Tasks",
+	// Call the Get() method to fetch the data for a specific task.
+	// We also need to use the errors.Is() function to check if it returns a data.ErrRecordNotFound error,
+	// in which case we send a 404 Not Found response to the client.
+	task, err := app.models.Tasks.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
 	}
-	// Create an envelope{"task": task} instance and pass it to writeJSON(),
-	// instead of passing the plain movie struct.
 	err = app.writeJSON(w, http.StatusOK, envelope{"task": task}, nil)
 	if err != nil {
-		// Use the new serverErrorResponse() helper.
 		app.serverErrorResponse(w, r, err)
 	}
 }

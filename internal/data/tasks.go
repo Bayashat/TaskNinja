@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/Bayashat/TaskNinja/internal/validator"
 )
 
@@ -30,19 +31,19 @@ func ValidateTask(v *validator.Validator, task *Task) {
 	v.Check(task.Category != "", "category", "must be provided")
 }
 
-// Define a MovieModel struct type which wraps a sql.DB connection pool.
+// Define a TaskModel struct type which wraps a sql.DB connection pool.
 type TaskModel struct {
 	DB *sql.DB
 }
 
-// Add a placeholder method for inserting a new record in the movies table.
+// Add a placeholder method for inserting a new record in the task table.
 func (m TaskModel) Insert(task *Task) error {
-	// Define the SQL query for inserting a new record in the movies table and returning the system-generated data.
+	// Define the SQL query for inserting a new record in the task table and returning the system-generated data.
 	query := `
 		INSERT INTO tasks (title, description, priority, status, category)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, user_id`
-	// Create an args slice containing the values for the placeholder parameters from the movie struct.
+	// Create an args slice containing the values for the placeholder parameters from the task struct.
 	// Declaring this slice immediately next to our SQL query helps to make it nice
 	// 		and clear *what values are being used where* in the query.
 	args := []interface{}{task.Title, task.Description, task.Priority, task.Status, task.Category}
@@ -52,17 +53,54 @@ func (m TaskModel) Insert(task *Task) error {
 	return m.DB.QueryRow(query, args...).Scan(&task.ID, &task.CreatedAt, &task.UserID)
 }
 
-// Add a placeholder method for fetching a specific record from the movies table.
+// Add a placeholder method for fetching a specific record from the task table.
 func (m TaskModel) Get(id int64) (*Task, error) {
-	return nil, nil
+	// The PostgreSQL bigserial type that we're using for the movie ID starts auto-incrementing at 1 by default,
+	// so we know that no task will have ID values less than that.
+	// To avoid making an unnecessary database call, we take a shortcut and return an ErrRecordNotFound error straight away.
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	// Define the SQL query for retrieving the task data.
+	query := `
+		SELECT id, created_at, title, description, priority, status, category, user_id
+		FROM tasks
+		WHERE id = $1`
+	// Declare a Task struct to hold the data returned by the query.
+	var task Task
+
+	// Execute the query using the QueryRow() method, passing in the provided id value as a placeholder parameter,
+	// and scan the response data into the fields of the Task struct.
+	err := m.DB.QueryRow(query, id).Scan(
+		&task.ID,
+		&task.CreatedAt,
+		&task.Title,
+		&task.Description,
+		&task.Priority,
+		&task.Status,
+		&task.Category,
+		&task.UserID,
+	)
+	// Handle any errors. If there was no matching task found, Scan() will return a sql.ErrNoRows error.
+	// We check for this and return our custom ErrRecordNotFound error instead.
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	// Otherwise, return a pointer to the Movie struct.
+	return &task, nil
 }
 
-// Add a placeholder method for updating a specific record in the movies table.
+// Add a placeholder method for updating a specific record in the task table.
 func (m TaskModel) Update(task *Task) error {
 	return nil
 }
 
-// Add a placeholder method for deleting a specific record from the movies table.
+// Add a placeholder method for deleting a specific record from the task table.
 func (m TaskModel) Delete(id int64) error {
 	return nil
 }
