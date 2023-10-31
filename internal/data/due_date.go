@@ -1,7 +1,9 @@
 package data
 
 import (
+	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -16,6 +18,25 @@ func (ct CustomTime) MarshalJSON() ([]byte, error) {
 	formattedTime := time.Time(ct).Format("2006-01-02 15:04:05")
 	quotedJSONValue := strconv.Quote(formattedTime)
 	return []byte(quotedJSONValue), nil
+}
+
+// Implement the database/sql/driver Val() method to convert CustomTime to a value that can be stored in the database.
+func (ct CustomTime) Value() (driver.Value, error) {
+	return time.Time(ct), nil
+}
+
+// Implement the database/sql/driver Scan() method to convert a database value to a CustomTime.
+func (ct *CustomTime) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case time.Time:
+		*ct = CustomTime(v)
+		return nil
+	case nil:
+		*ct = CustomTime(time.Time{})
+		return nil
+	default:
+		return errors.New("unsupported type for CustomTime")
+	}
 }
 
 // Implement a UnmarshalJSON() method on the Runtime type so that it satisfies the json.Unmarshaler interface.
@@ -34,6 +55,7 @@ func (ct *CustomTime) UnmarshalJSON(jsonValue []byte) error {
 	// If the layout doesn't match the expected format, return the ErrInvalidTimeFormat error.
 	const layout = "2006-01-02 15:04:05"
 	parsedTime, err := time.Parse(layout, unquotedJSONValue)
+	fmt.Println(parsedTime)
 	if err != nil {
 		return ErrInvalidTimeFormat
 	}

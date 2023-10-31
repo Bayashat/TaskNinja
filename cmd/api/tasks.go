@@ -13,12 +13,12 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 	// (note that the field names and types in the struct are a subset of the Movie struct that we created earlier).
 	// This struct will be our *target  decode destination*.
 	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		//DueDate     data.CustomTime `json:"due_date"`
-		Priority string `json:"priority"`
-		Status   string `json:"status"`
-		Category string `json:"category"`
+		Title       string          `json:"title"`
+		Description string          `json:"description"`
+		DueDate     data.CustomTime `json:"due_date"`
+		Priority    string          `json:"priority"`
+		Status      string          `json:"status"`
+		Category    string          `json:"category"`
 	}
 	err := app.readJSON(w, r, &input)
 	if err != nil {
@@ -26,27 +26,26 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// Copy the values from the input struct to a new Movie struct.
-	movie := &data.Task{
+	task := &data.Task{
 		Title:       input.Title,
 		Description: input.Description,
-		//DueDate:     input.DueDate,
-		Priority: input.Priority,
-		Status:   input.Status,
-		Category: input.Category,
+		DueDate:     input.DueDate,
+		Priority:    input.Priority,
+		Status:      input.Status,
+		Category:    input.Category,
 	}
 
 	// Initialize a new Validator.
 	v := validator.New()
 
 	// Call the ValidateTask() function and return a response containing the errors if any of the checks fail.
-	if data.ValidateTask(v, movie); !v.Valid() {
+	if data.ValidateTask(v, task); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-
 	// Call the Insert() method on our tasks model, passing in a pointer to the validated task struct.
 	// This will create a record in the database and update the task struct with the system-generated information.
-	err = app.models.Tasks.Insert(movie)
+	err = app.models.Tasks.Insert(task)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -56,9 +55,9 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 	// We make an empty http.Header map and then use the Set() method to add a new Location header,
 	// 		interpolating the system-generated ID for our new task in the URL.
 	headers := make(http.Header)
-	headers.Set("Location", fmt.Sprintf("/v1/tasks/%d", movie.ID))
+	headers.Set("Location", fmt.Sprintf("/v1/tasks/%d", task.ID))
 	// Write a JSON response with a 201 Created status code, the task data in the response body, and the Location header.
-	err = app.writeJSON(w, http.StatusCreated, envelope{"task": movie}, headers)
+	err = app.writeJSON(w, http.StatusCreated, envelope{"task": task}, headers)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -99,8 +98,7 @@ func (app *application) updateTaskHandler(w http.ResponseWriter, r *http.Request
 		app.notFoundResponse(w, r)
 		return
 	}
-	// Fetch the existing task record from the database,
-	// sending a 404 Not Found response to the client if we couldn't find a matching record.
+	// Retrieve the task record as normal.
 	task, err := app.models.Tasks.Get(id)
 	if err != nil {
 		switch {
@@ -111,29 +109,49 @@ func (app *application) updateTaskHandler(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	// Declare an input struct to hold the expected data from the client.
+	// Use pointers for the fields.
 	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		//DueDate     data.CustomTime `json:"due_date"`
-		Priority string `json:"priority"`
-		Status   string `json:"status"`
-		Category string `json:"category"`
+		Title       *string          `json:"title"`
+		Description *string          `json:"description"`
+		DueDate     *data.CustomTime `json:"due_date"`
+		Priority    *string          `json:"priority"`
+		Status      *string          `json:"status"`
+		Category    *string          `json:"category"`
 	}
 
-	// Read the JSON request body data into the input struct.
+	// Decode the Json as normal
 	err = app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	// Copy the values from the request body to the appropriate fields of the movie record.
-	task.Title = input.Title
-	task.Description = input.Description
-	task.Priority = input.Priority
-	task.Status = input.Status
-	task.Category = input.Category
+
+	// If the input.Title value is nil then we know that no corresponding "title"
+	//		key/value pair was provided in the JSON request body.
+	// So we move on and leave the task record unchanged.
+	// Otherwise, we update the task record with the new title value.
+	// Importantly, because input.Title is a now a pointer to a string,
+	//		we need to dereference the pointer using the * operator to get the underlying value
+	// 			before assigning it to our task record.
+	if input.Title != nil {
+		task.Title = *input.Title
+	}
+	// We also do the same for the other fields in the input struct.
+	if input.Description != nil {
+		task.Description = *input.Description
+	}
+	if input.Priority != nil {
+		task.Priority = *input.Priority
+	}
+	if input.Status != nil {
+		task.Status = *input.Status
+	}
+	if input.Category != nil {
+		task.Category = *input.Category
+	}
+	if input.DueDate != nil {
+		task.DueDate = *input.DueDate
+	}
 
 	// Validate the updated task record, sending the client a 422 Unprocessable Entity response if any checks fail.
 	v := validator.New()
