@@ -206,19 +206,16 @@ func (app *application) deleteTaskHandler(w http.ResponseWriter, r *http.Request
 func (app *application) listTasksHandler(w http.ResponseWriter, r *http.Request) {
 	// Embed the new Filters struct.
 	var input struct {
-		Title  string
-		Genres []string
+		Title string
 		data.Filters
 	}
 	// Initialize a new Validator instance.
 	v := validator.New()
+
 	// Call r.URL.Query() to get the url.Values map containing the query string data.
 	qs := r.URL.Query()
-	// Use our helpers to extract the title and genres query string values,
-	// 	falling back to defaults of an empty string and an empty slice respectively
-	//		if they are not provided by the client.
+
 	input.Title = app.readString(qs, "title", "")
-	input.Genres = app.readCSV(qs, "genres", []string{})
 
 	// Read the page and page_size query string values into the embedded struct.
 	input.Filters.Page = app.readInt(qs, "page", 1, v)
@@ -228,11 +225,24 @@ func (app *application) listTasksHandler(w http.ResponseWriter, r *http.Request)
 	input.Filters.Sort = app.readString(qs, "sort", "id")
 
 	// Add the supported sort values for this endpoint to the sort safelist.
-	input.Filters.SortSafelist = []string{"id", "title", "due_date", "priority", "category", "-id", "-title", "-due_date", "-priority", "-category"}
+	input.Filters.SortSafelist = []string{"id", "title", "priority", "category", "-id", "-title", "-priority", "-category"}
+
 	// Execute the validation checks on the Filters struct and send a response containing the errors if necessary.
 	if data.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	fmt.Fprintf(w, "%+v\n", input)
+
+	// Call the GetAll() method to retrieve the movies, passing in the various filter parameters.
+	tasks, err := app.models.Tasks.GetAll(input.Title, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Send a JSON response containing the movie data.
+	err = app.writeJSON(w, http.StatusOK, envelope{"tasks": tasks}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }

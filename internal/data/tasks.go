@@ -179,3 +179,55 @@ func (m TaskModel) Delete(id int64) error {
 	}
 	return nil
 }
+
+// Create a new GetAll() method which returns a slice of tasks.
+// Although we're not using them right now, we've set this up to accept the various filter parameters as arguments.
+func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
+	// Construct the SQL query to retrieve all movie records.
+	query := `
+		SELECT id, created_at, title, description, due_date, priority, status, category, user_id, version
+		FROM tasks
+		ORDER BY id`
+	// Create a context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// Use QueryContext() to execute the query. This returns a sql.Rows resultset containing the result.
+	rows, err := t.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	// Importantly, defer a call to rows.Close() to ensure that the resultset is closed before GetAll() returns.
+	defer rows.Close()
+	// Initialize an empty slice to hold the movie data.
+	tasks := []*Task{}
+	// Use rows.Next to iterate through the rows in the resultset.
+	for rows.Next() {
+		// Initialize an empty Movie struct to hold the data for an individual movie.
+		var task Task
+		// Scan the values from the row into the Movie struct. Again, note that we're
+		// using the pq.Array() adapter on the genres field here.
+		err := rows.Scan(
+			&task.ID,
+			&task.CreatedAt,
+			&task.Title,
+			&task.Description,
+			&task.DueDate,
+			&task.Priority,
+			&task.Status,
+			&task.Category,
+			&task.UserID,
+			&task.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// Add the Movie struct to the slice.
+		tasks = append(tasks, &task)
+	}
+	// When the rows.Next() loop has finished, call rows.Err() to retrieve any error that was encountered during the iteration.
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	// If everything went OK, then return the slice of movies.
+	return tasks, nil
+}
