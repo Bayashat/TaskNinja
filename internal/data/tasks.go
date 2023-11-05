@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/Bayashat/TaskNinja/internal/validator"
@@ -71,9 +72,15 @@ func (m TaskModel) Get(id int64) (*Task, error) {
 	// Declare a Task struct to hold the data returned by the query.
 	var task Task
 
-	// Execute the query using the QueryRow() method, passing in the provided id value as a placeholder parameter,
-	// and scan the response data into the fields of the Task struct.
-	err := m.DB.QueryRow(query, id).Scan(
+	// Use the context.WithTimeout() function to create a context.Context which carries a 3-second timeout deadline.
+	// Note that we're using the empty context.Background() as the 'parent' context.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	// Importantly, use defer to make sure that we cancel the context before the Get() method returns.
+	defer cancel()
+
+	// Use the QueryRowContext() method to execute the query, passing in the context with the deadline as the first argument.
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&task.ID,
 		&task.CreatedAt,
 		&task.Title,
@@ -119,10 +126,13 @@ func (m TaskModel) Update(task *Task) error {
 		task.ID,
 		task.Version, // // Add the expected task version
 	}
-	// Execute the SQL query. If no matching row could be found, we know the task version has changed
-	//		(or the record has been deleted)
-	// and we return our custom ErrEditConflict error.
-	err := m.DB.QueryRow(query, args...).Scan(&task.Version)
+
+	// Create a context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Use QueryRowContext() and pass the context as the first argument.
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&task.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -144,17 +154,23 @@ func (m TaskModel) Delete(id int64) error {
 	query := `
 		DELETE FROM tasks
 		WHERE id = $1`
-	// Execute the SQL query using the Exec() method, passing in the id variable as the value for the placeholder parameter.
-	// The Exec() method returns a sql.Result object.
-	result, err := m.DB.Exec(query, id)
+
+	// Create a context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Use ExecContext() and pass the context as the first argument.
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
+
 	// Call the RowsAffected() method on the sql.Result object to get the number of rows affected by the query.
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
+
 	// If no rows were affected,
 	//	we know that the tasks table didn't contain a record with the provided ID at the moment we tried to delete it.
 	// In that case we return an ErrRecordNotFound error.
