@@ -17,6 +17,7 @@ type Task struct {
 	Status      string     `json:"status"`      // Task status (e.g., to-do, in-progress, completed)
 	Category    string     `json:"category"`    // Task category or project it belongs to
 	UserID      int64      `json:"user_id"`     // ID of the user who created the task (for multi-user support)
+	Version     int32      `json:"version"`
 }
 
 func ValidateTask(v *validator.Validator, task *Task) {
@@ -43,7 +44,7 @@ func (m TaskModel) Insert(task *Task) error {
 	query := `
 		INSERT INTO tasks (title, description, priority, status, category, due_date)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, created_at, user_id`
+		RETURNING id, created_at, user_id, version`
 	// Create an args slice containing the values for the placeholder parameters from the task struct.
 	// Declaring this slice immediately next to our SQL query helps to make it nice
 	// 		and clear *what values are being used where* in the query.
@@ -51,7 +52,7 @@ func (m TaskModel) Insert(task *Task) error {
 	// Use the QueryRow() method to execute the SQL query on our connection pool,
 	// passing in the args slice as a variadic parameter
 	// and scanning the system-generated id, created_at and version values into the movie struct.
-	return m.DB.QueryRow(query, args...).Scan(&task.ID, &task.CreatedAt, &task.UserID)
+	return m.DB.QueryRow(query, args...).Scan(&task.ID, &task.CreatedAt, &task.UserID, &task.Version)
 }
 
 // Add a placeholder method for fetching a specific record from the task table.
@@ -64,7 +65,7 @@ func (m TaskModel) Get(id int64) (*Task, error) {
 	}
 	// Define the SQL query for retrieving the task data.
 	query := `
-		SELECT id, created_at, title, description, priority, status, category, due_date, user_id
+		SELECT id, created_at, title, description, priority, status, category, due_date, user_id, version
 		FROM tasks
 		WHERE id = $1`
 	// Declare a Task struct to hold the data returned by the query.
@@ -82,6 +83,7 @@ func (m TaskModel) Get(id int64) (*Task, error) {
 		&task.Category,
 		&task.DueDate,
 		&task.UserID,
+		&task.Version,
 	)
 	// Handle any errors. If there was no matching task found, Scan() will return a sql.ErrNoRows error.
 	// We check for this and return our custom ErrRecordNotFound error instead.
@@ -102,9 +104,9 @@ func (m TaskModel) Update(task *Task) error {
 	// Declare the SQL query for updating the record and returning the new version number.
 	query := `
 		UPDATE tasks
-		SET title = $1, description = $2, priority = $3, status = $4, category = $5, due_date = $6, user_id = $7
-		WHERE id = $8
-		RETURNING user_id`
+		SET title = $1, description = $2, priority = $3, status = $4, category = $5, due_date = $6, user_id = $7, version = version + 1
+		WHERE id = $8 AND version = $9
+		RETURNING version`
 	// Create an args slice containing the values for the placeholder parameters.
 	args := []interface{}{
 		task.Title,
@@ -115,10 +117,21 @@ func (m TaskModel) Update(task *Task) error {
 		task.DueDate,
 		task.UserID,
 		task.ID,
+		task.Version, // // Add the expected task version
 	}
-	// Use the QueryRow() method to execute the query,
-	// passing in the args slice as a variadic parameter and scanning the new version value into the task struct.
-	return m.DB.QueryRow(query, args...).Scan(&task.UserID)
+	// Execute the SQL query. If no matching row could be found, we know the task version has changed
+	//		(or the record has been deleted)
+	// and we return our custom ErrEditConflict error.
+	err := m.DB.QueryRow(query, args...).Scan(&task.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 // Add a placeholder method for deleting a specific record from the task table.

@@ -65,7 +65,6 @@ func (app *application) createTaskHandler(w http.ResponseWriter, r *http.Request
 
 // Add a showTaskHandler for the "GET /v1/task/:id" endpoint.
 // For now, we retrieve the interpolated "id" parameter from the current URL and include it in a placeholder response.
-
 func (app *application) showTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
@@ -159,12 +158,18 @@ func (app *application) updateTaskHandler(w http.ResponseWriter, r *http.Request
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	// Pass the updated task record to our new Update() method.
+	// Intercept any ErrEditConflict error and call the new editConflictResponse() helper.
 	err = app.models.Tasks.Update(task)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
+
 	// Write the updated task record in a JSON response.
 	err = app.writeJSON(w, http.StatusOK, envelope{"task": task}, nil)
 	if err != nil {
