@@ -187,7 +187,7 @@ func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
 	query := `
 		SELECT id, created_at, title, description, due_date, priority, status, category, user_id, version
 		FROM tasks
-		WHERE (LOWER(title) = LOWER($1) OR $1 = '')
+		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
 		ORDER BY id`
 
 	// Create a context with a 3-second timeout.
