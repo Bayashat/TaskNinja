@@ -183,10 +183,10 @@ func (m TaskModel) Delete(id int64) error {
 
 // Create a new GetAll() method which returns a slice of tasks.
 // Although we're not using them right now, we've set this up to accept the various filter parameters as arguments.
-func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
-	// Update the SQL query to include the LIMIT and OFFSET clauses with placeholder parameter values.
+func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, Metadata, error) {
+	// Update the SQL query to include the window function which counts the total (filtered) records.
 	query := fmt.Sprintf(`
-		SELECT id, created_at, title, description, due_date, priority, status, category, user_id, version
+		SELECT count(*) OVER(), id, created_at, title, description, due_date, priority, status, category, user_id, version
 		FROM tasks
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
 		ORDER BY %s %s, id ASC
@@ -205,11 +205,14 @@ func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
 	// And then pass the args slice to QueryContext() as a variadic parameter.
 	rows, err := t.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err // Update this to return an empty Metadata struct.
 	}
 
 	// Importantly, defer a call to rows.Close() to ensure that the resultset is closed before GetAll() returns.
 	defer rows.Close()
+
+	// Declare a totalRecords variable.
+	totalRecords := 0
 
 	// Initialize an empty slice to hold the movie data.
 	tasks := []*Task{}
@@ -221,6 +224,7 @@ func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
 		// Scan the values from the row into the Movie struct. Again, note that we're
 		// using the pq.Array() adapter on the genres field here.
 		err := rows.Scan(
+			&totalRecords, // Scan the count from the window function into totalRecords.
 			&task.ID,
 			&task.CreatedAt,
 			&task.Title,
@@ -233,7 +237,7 @@ func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
 			&task.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err // Update this to return an empty Metadata struct.
 		}
 
 		// Add the Movie struct to the slice.
@@ -242,9 +246,13 @@ func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
 
 	// When the rows.Next() loop has finished, call rows.Err() to retrieve any error that was encountered during the iteration.
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err // Update this to return an empty Metadata struct.
 	}
 
+	// Generate a Metadata struct, passing in the total record count and pagination
+	// parameters from the client.
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
 	// If everything went OK, then return the slice of movies.
-	return tasks, nil
+	return tasks, metadata, nil
 }

@@ -233,15 +233,15 @@ func (app *application) listTasksHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Call the GetAll() method to retrieve the movies, passing in the various filter parameters.
-	tasks, err := app.models.Tasks.GetAll(input.Title, input.Filters)
+	// Accept the metadata struct as a return value.
+	tasks, metadata, err := app.models.Tasks.GetAll(input.Title, input.Filters)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	// Send a JSON response containing the movie data.
-	err = app.writeJSON(w, http.StatusOK, envelope{"tasks": tasks}, nil)
+	// Include the metadata in the response envelope.
+	err = app.writeJSON(w, http.StatusOK, envelope{"tasks": tasks, "metadata": metadata}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
