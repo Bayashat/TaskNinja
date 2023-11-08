@@ -184,20 +184,26 @@ func (m TaskModel) Delete(id int64) error {
 // Create a new GetAll() method which returns a slice of tasks.
 // Although we're not using them right now, we've set this up to accept the various filter parameters as arguments.
 func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
-	// Add an ORDER BY clause and interpolate the sort column and direction.
-	// Importantly notice that we also include a secondary sort on the task ID to ensure a consistent ordering.
+	// Update the SQL query to include the LIMIT and OFFSET clauses with placeholder parameter values.
 	query := fmt.Sprintf(`
 		SELECT id, created_at, title, description, due_date, priority, status, category, user_id, version
 		FROM tasks
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
-		ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
+		ORDER BY %s %s, id ASC
+		LIMIT $2 OFFSET $3`, filters.sortColumn(), filters.sortDirection())
 
 	// Create a context with a 3-second timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// Pass the title as the placeholder parameter values.
-	rows, err := t.DB.QueryContext(ctx, query, title)
+	// As our SQL query now has quite a few placeholder parameters,
+	// let's collect the values for the placeholders in a slice.
+	// Notice here how we call the limit() and offset() methods on the Filters struct to get the appropriate values
+	//		for the LIMIT and OFFSET clauses.
+	args := []interface{}{title, filters.limit(), filters.offset()}
+
+	// And then pass the args slice to QueryContext() as a variadic parameter.
+	rows, err := t.DB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
