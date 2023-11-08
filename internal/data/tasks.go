@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/Bayashat/TaskNinja/internal/validator"
 	"time"
 )
@@ -183,12 +184,13 @@ func (m TaskModel) Delete(id int64) error {
 // Create a new GetAll() method which returns a slice of tasks.
 // Although we're not using them right now, we've set this up to accept the various filter parameters as arguments.
 func (t TaskModel) GetAll(title string, filters Filters) ([]*Task, error) {
-	// Update the SQL query to include the filter conditions.
-	query := `
+	// Add an ORDER BY clause and interpolate the sort column and direction.
+	// Importantly notice that we also include a secondary sort on the task ID to ensure a consistent ordering.
+	query := fmt.Sprintf(`
 		SELECT id, created_at, title, description, due_date, priority, status, category, user_id, version
 		FROM tasks
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
-		ORDER BY id`
+		ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
 
 	// Create a context with a 3-second timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
