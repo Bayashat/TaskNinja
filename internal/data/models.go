@@ -13,14 +13,16 @@ var (
 )
 
 type Models struct {
-	Tasks TaskModel
-	Users UserModel // Add a new Users field.
+	Tasks  TaskModel
+	Tokens TokenModel // Add a new Tokens field.
+	Users  UserModel  // Add a new Users field.
 }
 
 // For ease of use, we also add a New() method which returns a Models struct containing the initialized MovieModel.
 func NewModels(db *sql.DB) Models {
 	return Models{
-		Tasks: TaskModel{DB: db},
-		Users: UserModel{DB: db}, // Initialize a new UserModel instance.
+		Tasks:  TaskModel{DB: db},
+		Tokens: TokenModel{DB: db}, // Initialize a new TokenModel instance.
+		Users:  UserModel{DB: db},  // Initialize a new UserModel instance.
 	}
 }
