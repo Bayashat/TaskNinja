@@ -13,8 +13,8 @@ import (
 // Define constants for the token scope. For now we just define the scope "activation"
 // but we'll add additional scopes later in the book.
 const (
-	ScopeActivation     = "activation"
-	ScopeAuthentication = "authentication" // Include a new authentication scope.
+	ScopeActivation      = "activation"
+	ScopeAuthentications = "authentication"
 )
 
 // Add struct tags to control how the struct appears when encoded to JSON.

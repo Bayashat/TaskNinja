@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority text NOT NULL,
     status text NOT NULL,
     category text NOT NULL,
-    user_id bigserial
+    user_id bigserial,
+    version integer NOT NULL DEFAULT 1
 
     -- Define a foreign key constraint to link tasks with users (assuming users table)
 --     FOREIGN KEY (user_id) REFERENCES users(id)

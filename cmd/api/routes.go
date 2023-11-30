@@ -19,14 +19,16 @@ func (app *application) routes() http.Handler {
 	// and set it as the custom error handler for 405 Method Not Allowed responses.
 	router.MethodNotAllowed = http.HandlerFunc(app.methodNotAllowedResponse)
 
-	// Add the route for the GET /v1/tasks endpoint.
-	router.HandlerFunc(http.MethodGet, "/v1/tasks", app.listTasksHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
-	router.HandlerFunc(http.MethodPost, "/v1/tasks", app.createTaskHandler)
-	router.HandlerFunc(http.MethodGet, "/v1/tasks/:id", app.showTaskHandler)
+
+	// Use the requirePermission() middleware on each of the /v1/tasks** endpoints,
+	// passing in the required permission code as the first parameter.
+	router.HandlerFunc(http.MethodGet, "/v1/tasks", app.requirePermission("tasks:read", app.listTasksHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/tasks", app.requirePermission("tasks:write", app.createTaskHandler))
+	router.HandlerFunc(http.MethodGet, "/v1/tasks/:id", app.requirePermission("tasks:read", app.showTaskHandler))
 	// Require a PATCH request, rather than PUT.
-	router.HandlerFunc(http.MethodPatch, "/v1/tasks/:id", app.updateTaskHandler)
-	router.HandlerFunc(http.MethodDelete, "/v1/tasks/:id", app.deleteTaskHandler)
+	router.HandlerFunc(http.MethodPatch, "/v1/tasks/:id", app.requirePermission("tasks:write", app.updateTaskHandler))
+	router.HandlerFunc(http.MethodDelete, "/v1/tasks/:id", app.requirePermission("tasks:write", app.deleteTaskHandler))
 
 	// Add the route for the POST /v1/users endpoint.
 	router.HandlerFunc(http.MethodPost, "/v1/users", app.registerUserHandler)
