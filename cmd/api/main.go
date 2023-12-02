@@ -70,7 +70,10 @@ func main() {
 
 	// Use the value of the GREENLIGHT_DB_DSN environment variable as the default value
 	// for our db-dsn command-line flag.
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TASKNINJA_DB_DSN"), "PostgreSQL DSN")
+	//flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TASKNINJA_DB_DSN"), "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn",
+		"postgres://taskninja:admin@db:5432/taskninja?sslmode=disable",
+		"PostgreSQL DSN")
 
 	// Read the connection pool settings from command-line flags into the config struct.
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
