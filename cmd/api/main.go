@@ -72,7 +72,7 @@ func main() {
 	// for our db-dsn command-line flag.
 	//flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("TASKNINJA_DB_DSN"), "PostgreSQL DSN")
 	flag.StringVar(&cfg.db.dsn, "db-dsn",
-		"postgres://taskninja:admin@db:5432/taskninja?sslmode=disable",
+		"postgres://taskninja:admin@localhost/taskninja?sslmode=disable",
 		"PostgreSQL DSN")
 
 	// Read the connection pool settings from command-line flags into the config struct.
